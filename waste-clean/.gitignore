@@ -1,0 +1,6 @@
+waste_env/
+__pycache__/
+*.pyc
+*.jpg
+*.jpeg
+*.png
