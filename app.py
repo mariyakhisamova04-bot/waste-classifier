@@ -7,31 +7,15 @@ import os
 import gdown
 
 # -----------------------
-# Загрузка модели из Google Drive
-# -----------------------
-MODEL_URL = "https://drive.google.com/uc?id=1WXKqzz213LvWBXmSXw66lg6Wc46pfrqZ"
-MODEL_PATH = "best_classifier.pth"
-
-def download_model():
-    if not os.path.exists(MODEL_PATH):
-        with st.spinner("Loading model. Please wait..."):
-            gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
-        st.success("Model loaded successfully")
-
-download_model()
-
-# -----------------------
-# Страница настроек
+# 1. ПОДГОТОВКА
 # -----------------------
 st.set_page_config(
-    page_title="Waste Classifier",
+    page_title="Классификатор отходов",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
 
-# -----------------------
-# CSS styles
-# -----------------------
+# Стили CSS (полностью скопированы из вашего кода, только без смайликов)
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
@@ -47,13 +31,14 @@ st.markdown("""
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
     }
     .main-title {
-        font-size: 3rem;
+        font-size: 3.5rem;
         font-weight: 700;
         background: linear-gradient(120deg, #FFFFFF, #80D4F0);
         -webkit-background-clip: text;
         background-clip: text;
         color: transparent;
         margin-bottom: 0.5rem;
+        letter-spacing: -0.02em;
     }
     .sub-title {
         font-size: 1.1rem;
@@ -72,6 +57,7 @@ st.markdown("""
     .feature-card:hover {
         transform: translateY(-4px);
         background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.25);
     }
     .feature-title {
         font-size: 1.1rem;
@@ -113,10 +99,12 @@ st.markdown("""
         padding: 0.6rem 1.5rem;
         font-weight: 500;
         color: white;
+        transition: all 0.2s;
     }
     .stButton > button:hover {
         background: linear-gradient(90deg, #00C8E8, #0096D8);
         transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(0, 180, 216, 0.3);
     }
     .stTabs [data-baseweb="tab-list"] {
         gap: 1.5rem;
@@ -142,56 +130,64 @@ st.markdown("""
         border-top: 1px solid rgba(255, 255, 255, 0.1);
         margin-top: 2rem;
     }
-    hr { margin: 1rem 0; border-color: rgba(255, 255, 255, 0.1); }
+    hr {
+        margin: 1rem 0;
+        border-color: rgba(255, 255, 255, 0.1);
+    }
 </style>
 """, unsafe_allow_html=True)
 
+
 # -----------------------
-# Загрузка модели
+# 2. ЗАГРУЗЧИК МОДЕЛИ (С GOOGLE DRIVE)
 # -----------------------
 @st.cache_resource
 def load_model():
-    print("Loading ResNet50 model...")
+    # ID файла из вашей ссылки (скопирован из URL)
+    file_id = "1WXKqzz213LvWBXmSXw66lg6Wc46pfrqZ"
+    url = f"https://drive.google.com/uc?id={file_id}"
+    model_path = "best_classifier.pth"
+
+    # Скачиваем, если файла нет
+    if not os.path.exists(model_path):
+        with st.spinner("Загрузка модели. Пожалуйста, подождите..."):
+            gdown.download(url, model_path, quiet=False)
+        st.success("Модель загружена успешно!")
+
+    # Инициализация модели
     num_classes = 10
     model = models.resnet50(weights=None)
     num_features = model.fc.in_features
     model.fc = nn.Linear(num_features, num_classes)
 
-    if not os.path.exists(MODEL_PATH):
-        st.error("Model file not found")
-        return None
-
-    model.load_state_dict(torch.load(MODEL_PATH, map_location="cpu"))
+    model.load_state_dict(torch.load(model_path, map_location="cpu"))
     model.eval()
-    print("Model loaded")
     return model
 
-model = load_model()
 
 # -----------------------
-# Classes and recommendations
+# 3. ИНИЦИАЛИЗАЦИЯ МОДЕЛИ И КЛАССОВ
 # -----------------------
+model = load_model()
+
 classes_ru = [
-    'battery', 'biological', 'cardboard', 'clothes', 'glass',
-    'metal', 'paper', 'plastic', 'shoes', 'trash'
+    'батарейка', 'биологические отходы', 'картон', 'одежда', 'стекло',
+    'металл', 'бумага', 'пластик', 'обувь', 'смешанный мусор'
 ]
 
 recommendations = {
-    'battery': 'Hazardous waste. Dispose at a battery collection point.',
-    'biological': 'Organic waste. Compost or separate bio-bin.',
-    'cardboard': 'Cardboard. Recycling bin for paper and cardboard.',
-    'clothes': 'Textiles. Clothing collection container or second-hand.',
-    'glass': 'Glass. Glass recycling bin (rinsed, without lids).',
-    'metal': 'Metal. Metal/tin recycling container.',
-    'paper': 'Paper. Paper recycling bin.',
-    'plastic': 'Plastic. Plastic recycling bin (clean and compressed).',
-    'shoes': 'Shoes. Textile/shoe collection container.',
-    'trash': 'Mixed waste. General waste container.'
+    'батарейка': 'Опасные отходы. Сдать в специальный пункт приёма батареек.',
+    'биологические отходы': 'Пищевые отходы. На компост или в отдельный контейнер.',
+    'картон': 'Картон. В контейнер для бумаги и картона (сплющить).',
+    'одежда': 'Текстиль. В контейнер для одежды или секонд-хенд.',
+    'стекло': 'Стекло. В контейнер для стекла (мытое, без крышек).',
+    'металл': 'Металл. В контейнер для металла и жести.',
+    'бумага': 'Бумага. В контейнер для макулатуры.',
+    'пластик': 'Пластик. В контейнер для пластика (чистый, сжатый).',
+    'обувь': 'Обувь. В контейнер для текстиля и обуви.',
+    'смешанный мусор': 'Смешанные отходы. В общий контейнер.'
 }
 
-# -----------------------
-# Transform
-# -----------------------
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
@@ -210,8 +206,9 @@ def predict(image):
         conf = probs[idx].item()
     return classes_ru[idx], conf
 
+
 # -----------------------
-# Header
+# 4. ИНТЕРФЕЙС (ШАПКА, КАРТОЧКИ, ТАБЫ)
 # -----------------------
 col_logo, col_nav = st.columns([1, 3])
 with col_logo:
@@ -223,83 +220,90 @@ with col_logo:
 with col_nav:
     st.markdown("""
     <div style="display: flex; justify-content: flex-end; gap: 2rem; color: rgba(255,255,255,0.7);">
-        <span>Home</span>
-        <span>About</span>
-        <span>Classes</span>
+        <span>Главная</span>
+        <span>О проекте</span>
+        <span>Классы</span>
     </div>
     """, unsafe_allow_html=True)
 
-# -----------------------
-# Hero section
-# -----------------------
 st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-st.markdown('<div class="main-title">Waste Classification System based on Computer Vision</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">Upload a photo or take a picture with your webcam. The neural network will identify the waste type and provide a recycling recommendation.</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">Система классификации отходов на основе компьютерного зрения</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">Загрузите фотографию или сделайте снимок с веб-камеры. Нейросеть определит тип отхода и даст рекомендацию по утилизации.</div>', unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns(3)
 with col1:
-    st.markdown('<div class="feature-card"><div class="feature-title">File Upload</div><div class="feature-desc">JPG, JPEG, PNG</div></div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="feature-card">
+        <div class="feature-title">Загрузка файла</div>
+        <div class="feature-desc">Поддержка JPG, JPEG, PNG</div>
+    </div>
+    """, unsafe_allow_html=True)
 with col2:
-    st.markdown('<div class="feature-card"><div class="feature-title">Webcam</div><div class="feature-desc">Real-time capture</div></div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="feature-card">
+        <div class="feature-title">Веб-камера</div>
+        <div class="feature-desc">Снимок в реальном времени</div>
+    </div>
+    """, unsafe_allow_html=True)
 with col3:
-    st.markdown('<div class="feature-card"><div class="feature-title">10 waste classes</div><div class="feature-desc">Model accuracy 86.2%</div></div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="feature-card">
+        <div class="feature-title">10 классов отходов</div>
+        <div class="feature-desc">Точность модели 86.2%</div>
+    </div>
+    """, unsafe_allow_html=True)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# -----------------------
-# Main: tabs (file / webcam)
-# -----------------------
+
 st.markdown('<div class="glass-panel">', unsafe_allow_html=True)
-tab1, tab2 = st.tabs(["Upload File", "Take a picture with webcam"])
+tab1, tab2 = st.tabs(["Загрузить файл", "Сделать снимок с веб-камеры"])
 
 with tab1:
-    uploaded_file = st.file_uploader("Select image", type=["jpg", "jpeg", "png"], key="file_uploader")
+    uploaded_file = st.file_uploader("Выберите изображение", type=["jpg", "jpeg", "png"], key="file_uploader")
     if uploaded_file:
         image = Image.open(uploaded_file)
         col_img, col_res = st.columns([1, 1])
         with col_img:
-            st.image(image, caption="Uploaded image", use_container_width=True)
+            st.image(image, caption="Загруженное изображение", use_container_width=True)
         with col_res:
-            with st.spinner("Analyzing..."):
+            with st.spinner("Анализ..."):
                 label, conf = predict(image)
             if label:
                 st.markdown(f"""
                 <div class="result-glass">
                     <div class="result-label">{label.upper()}</div>
-                    <div class="result-confidence">Confidence: {conf*100:.1f}%</div>
-                    <div class="result-recommendation">Recommendation: {recommendations.get(label, 'Sort according to local rules')}</div>
+                    <div class="result-confidence">Уверенность: {conf*100:.1f}%</div>
+                    <div class="result-recommendation">Рекомендация: {recommendations.get(label, 'Сортировать по местным правилам')}</div>
                 </div>
                 """, unsafe_allow_html=True)
-                st.progress(conf, text=f"Model confidence: {conf*100:.1f}%")
+                st.progress(conf, text=f"Уверенность модели: {conf*100:.1f}%")
 
 with tab2:
-    st.markdown("Press the button below to activate the camera and take a picture.")
-    camera_image = st.camera_input("Take a picture", key="camera_input")
+    st.markdown("Нажмите на кнопку ниже, чтобы активировать камеру и сделать снимок.")
+    camera_image = st.camera_input("Сделать снимок", key="camera_input")
     if camera_image:
         image_cam = Image.open(camera_image)
         col_img, col_res = st.columns([1, 1])
         with col_img:
-            st.image(image_cam, caption="Camera shot", use_container_width=True)
+            st.image(image_cam, caption="Снимок с камеры", use_container_width=True)
         with col_res:
-            with st.spinner("Analyzing..."):
+            with st.spinner("Анализ..."):
                 label_cam, conf_cam = predict(image_cam)
             if label_cam:
                 st.markdown(f"""
                 <div class="result-glass">
                     <div class="result-label">{label_cam.upper()}</div>
-                    <div class="result-confidence">Confidence: {conf_cam*100:.1f}%</div>
-                    <div class="result-recommendation">Recommendation: {recommendations.get(label_cam, 'Sort according to local rules')}</div>
+                    <div class="result-confidence">Уверенность: {conf_cam*100:.1f}%</div>
+                    <div class="result-recommendation">Рекомендация: {recommendations.get(label_cam, 'Сортировать по местным правилам')}</div>
                 </div>
                 """, unsafe_allow_html=True)
-                st.progress(conf_cam, text=f"Model confidence: {conf_cam*100:.1f}%")
+                st.progress(conf_cam, text=f"Уверенность модели: {conf_cam*100:.1f}%")
 
 st.markdown('</div>', unsafe_allow_html=True)
 
-# -----------------------
-# Footer
-# -----------------------
 st.markdown("""
 <div class="custom-footer">
-    Diploma thesis: Development of an automatic household waste classification system based on computer vision methods<br>
-    Model: ResNet50 | Classes: 10 | Accuracy: 86.2%
+    Дипломная работа: Разработка системы автоматической классификации бытовых отходов на основе методов компьютерного зрения<br>
+    Модель: ResNet50 | Классов: 10 | Точность: 86.2%
 </div>
 """, unsafe_allow_html=True)
